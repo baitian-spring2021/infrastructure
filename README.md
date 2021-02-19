@@ -27,5 +27,9 @@ $ terraform plan
 ```
 3. Apply the resources to AWS cloud.
 ```sh
-$ terraform plan
+$ terraform apply -auto-approve
+```
+* To destrop the Terraform resources.
+```sh
+$ terraform destroy -auto-approve
 ```
