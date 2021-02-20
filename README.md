@@ -6,11 +6,8 @@
 
 ### Setup
 1. Clone this repository.
-2. Go to the folder below.
-```sh
-$ cd /infrastructure/aws/terraform/application/module1/
-```
-3. Create terraform.tfvars configuration file and set the resource variables.
+2. Go to the working directory.
+3. Create a terraform.tfvars configuration file and set the resource variables.
 4. Configure the AWS credentials with AWS CLI.
 ```sh
 $ aws configure --profile {your profile name}
