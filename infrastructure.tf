@@ -61,7 +61,7 @@ resource "aws_route_table" "routeTable" {
 
 # create public route
 resource "aws_route" "route1" {
-  route_table_id            = aws_route.routeTable.id
+  route_table_id            = aws_route_table.routeTable.id
   destination_cidr_block    = "0.0.0.0/0"
   gateway_id                = aws_internet_gateway.igw.id
 }
@@ -71,11 +71,11 @@ resource "aws_route_table_association" "assoc1" {
   subnet_id      = aws_subnet.subnet1.id
   route_table_id = aws_route_table.routeTable.id
 }
-resource "aws_route_table_association" "assoc1" {
+resource "aws_route_table_association" "assoc2" {
   subnet_id      = aws_subnet.subnet2.id
   route_table_id = aws_route_table.routeTable.id
 }
-resource "aws_route_table_association" "assoc1" {
+resource "aws_route_table_association" "assoc3" {
   subnet_id      = aws_subnet.subnet3.id
   route_table_id = aws_route_table.routeTable.id
 }

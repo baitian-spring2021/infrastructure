@@ -1,32 +1,32 @@
 # Infrastructure Setup with Terraform
 
-### Prerequisites
-- AWS CLI
-- Terraform
+### Configuration
 
-### Setup
+> Pre-requisites
+> * AWS CLI
+> * Terraform
+
 1. Clone this repository.
-2. Go to the working directory.
-3. Create a terraform.tfvars configuration file and set the resource variables.
-4. Configure the AWS credentials with AWS CLI.
+```sh
+$ git clone {repo link}
+```
+2. Configure the AWS credentials with AWS CLI.
 ```sh
 $ aws configure --profile {your profile name}
 ```
-
-### Execution
-1. Initialize the working directory.
+3. Initialize the working directory.
 ```sh
 $ terraform init
 ```
-2. Plan the execution.
+4. Plan the execution.
 ```sh
 $ terraform plan
 ```
-3. Apply the resources to AWS cloud.
+5. Apply the resources to AWS cloud.
 ```sh
 $ terraform apply -auto-approve
 ```
-* To destrop the Terraform resources.
+* To destroy the Terraform resources.
 ```sh
 $ terraform destroy -auto-approve
 ```
