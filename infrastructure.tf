@@ -1,10 +1,10 @@
 provider "aws" {
-  region = "us-east-1"
+  region = var.region
 }
 
 # create vpc
 resource "aws_vpc" "csye2665_vpc" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.cidr_vpc
   tags = {
     Name = "csye6225_vpc"
   }
@@ -13,8 +13,8 @@ resource "aws_vpc" "csye2665_vpc" {
 # subnet 1
 resource "aws_subnet" "subnet1" {
   vpc_id                  = aws_vpc.csye2665_vpc.id
-  cidr_block              = "10.0.0.0/24"
-  availability_zone       = "us-east-1d"
+  cidr_block              = var.cidr_subnet[0]
+  availability_zone       = join("", [var.region, var.a_zone[0]])
   map_public_ip_on_launch = true
   tags = {
     Name = "csye6225_subnet1"
@@ -24,8 +24,8 @@ resource "aws_subnet" "subnet1" {
 # subnet 2
 resource "aws_subnet" "subnet2" {
   vpc_id                  = aws_vpc.csye2665_vpc.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1e"
+  cidr_block              = var.cidr_subnet[1]
+  availability_zone       = join("", [var.region, var.a_zone[0]])
   map_public_ip_on_launch = true
   tags = {
     Name = "csye6225_subnet2"
@@ -35,8 +35,8 @@ resource "aws_subnet" "subnet2" {
 # subnet 3
 resource "aws_subnet" "subnet3" {
   vpc_id                  = aws_vpc.csye2665_vpc.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = "us-east-1f"
+  cidr_block              = var.cidr_subnet[2]
+  availability_zone       = join("", [var.region, var.a_zone[0]])
   map_public_ip_on_launch = true
   tags = {
     Name = "csye6225_subnet3"
