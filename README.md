@@ -10,7 +10,7 @@
 ```sh
 $ git clone {repo link}
 ```
-2. Configure the AWS credentials with AWS CLI.
+2. Set up the variables.tf file and configure the AWS credentials with AWS CLI. 
 ```sh
 $ aws configure --profile {your profile name}
 ```
