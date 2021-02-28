@@ -107,6 +107,12 @@ resource "aws_security_group" "application_sg" {
     to_port         = "8080"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks  = ["0.0.0.0/0"]
+  }
   tags = {
     "Name" = "csye6225_application_sg"
   }
@@ -120,6 +126,12 @@ resource "aws_security_group" "database_sg" {
     from_port       = "3306"
     to_port         = "3306"
     security_groups = [aws_security_group.application_sg.id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks  = ["0.0.0.0/0"]
   }
   tags = {
     "Name" = "csye6225_database_sg"
@@ -167,7 +179,6 @@ resource "aws_db_subnet_group" "db_subnet_group" {
 resource "aws_db_instance" "rds" {
   allocated_storage      = var.db_allocated_storage
   engine                 = var.db_engine
-  engine_version         = "5.7"
   instance_class         = var.db_instance_class
   multi_az               = var.db_multi_az
   identifier             = var.db_identifier
@@ -216,10 +227,7 @@ resource "aws_iam_role_policy" "webapp_s3_policy" {
   "Statement": [
     {
       "Action": [
-        "s3:ListBucket",
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject"
+        "s3:*"
       ],
       "Effect": "Allow",
       "Resource": [
@@ -237,6 +245,7 @@ resource "aws_iam_instance_profile" "ec2_profile" {
   name = "ec2_profile_s3"
   role = aws_iam_role.ec2_role.name
 }
+
 
 # ec2 instance 
 resource "aws_instance" "ec2" {

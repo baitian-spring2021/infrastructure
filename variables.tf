@@ -2,7 +2,6 @@ variable "region" {
   default     = "us-east-1"
 }
 
-
 variable "a_zone" {
   default     = ["d", "e", "f"]
 }
@@ -67,7 +66,7 @@ variable "webapp_s3_policy" {
 }
 
 variable "ec2_ami" {
-  default     = "ami-0ceb8ae23e7491730"
+  default     = ""
 }
 
 variable "ec2_instance_type" {
