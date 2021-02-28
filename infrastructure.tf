@@ -165,7 +165,9 @@ resource "aws_db_subnet_group" "db_subnet_group" {
 
 # RDS instance
 resource "aws_db_instance" "rds" {
+  allocated_storage      = var.db_allocated_storage
   engine                 = var.db_engine
+  engine_version         = "5.7"
   instance_class         = var.db_instance_class
   multi_az               = var.db_multi_az
   identifier             = var.db_identifier
@@ -175,6 +177,8 @@ resource "aws_db_instance" "rds" {
   publicly_accessible    = var.db_publicly_accessible
   name                   = var.db_name
   vpc_security_group_ids = [aws_security_group.database_sg.id]
+  skip_final_snapshot    = true
+
   tags = {
     "Name" = "csye6225_rds"
   }
@@ -228,6 +232,7 @@ resource "aws_iam_role_policy" "webapp_s3_policy" {
 EOF
 }
 
+# ec2 profile from ec2_role
 resource "aws_iam_instance_profile" "ec2_profile" {
   name = "ec2_profile_s3"
   role = aws_iam_role.ec2_role.name
@@ -244,7 +249,7 @@ resource "aws_instance" "ec2" {
   key_name             = var.ec2_key_name
 
   ebs_block_device {
-    device_name           = "csye6225_ec2_ebs"
+    device_name           = "/dev/sda1"
     volume_type           = var.ec2_volume_type
     volume_size           = var.ec2_volume_size
     delete_on_termination = var.ec2_ebs_delete_on_termination
@@ -256,20 +261,18 @@ resource "aws_instance" "ec2" {
     ######################
     # Setting S3 for EC2 #
     ######################
+
+    sudo echo "export DB_USERNAME=${var.db_username}" >> /etc/environment
+    sudo echo "export DB_PASSWORD=${var.db_password}" >> /etc/environment
+    sudo echo "export DB_ENDPOINT=${aws_db_instance.rds.endpoint}"  >> /etc/environment
+    sudo echo "export DB_NAME=${var.db_name}" >> /etc/environment
     
-    echo "export DB_USERNAME=${var.db_username}" >> /etc/environment
-    echo "export DB_PASSWORD=${var.db_password}" >> /etc/environment
-    echo "export DB_ENDPOINT=${aws_db_instance.rds.endpoint}"  >> /etc/environment
-    echo "export DB_NAME=${var.db_name}" >> /etc/environment
+    sudo echo "export S3_BUCKET=${aws_s3_bucket.s3_bucket.id}" >> /etc/environment
+    sudo echo "export S3_BUCKET_NAME=${var.bucket_name}" >> /etc/environment
     
-    echo "export AWS_BUCKET=${aws_s3_bucket.s3_bucket.id}" >> /etc/environment
-    echo "export AWS_BUCKET_NAME=${var.bucket_name}" >> /etc/environment
-    
-    echo "export DB_PORT=${aws_db_instance.rds.port}" >> /etc/environment
-    echo "export DB_HOST=${aws_db_instance.rds.address}" >> /etc/environment
-    echo "export FILESYSTEM_DRIVER=s3" >> /etc/environment
-    echo "export AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
-    chown -R ubuntu:www-data /var/www
+    sudo echo "export FILESYSTEM_DRIVER=s3" >> /etc/environment
+    sudo echo "export AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
+    sudo chown -R ubuntu:www-data /var/www
     usermod -a -G www-data ubuntu
   EOF
 

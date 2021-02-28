@@ -2,6 +2,7 @@ variable "region" {
   default     = "us-east-1"
 }
 
+
 variable "a_zone" {
   default     = ["d", "e", "f"]
 }
@@ -16,6 +17,11 @@ variable "cidr_subnet" {
 
 variable "bucket_name" {
   default     = "webapp.tianyu.bai"
+}
+
+variable "db_allocated_storage" {
+  type        = number
+  default     = 20
 }
 
 variable "db_engine" {
@@ -61,7 +67,7 @@ variable "webapp_s3_policy" {
 }
 
 variable "ec2_ami" {
-  default     = "ami-0e58901df1a3016a7"
+  default     = "ami-0ceb8ae23e7491730"
 }
 
 variable "ec2_instance_type" {
