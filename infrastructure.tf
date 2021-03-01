@@ -264,25 +264,23 @@ resource "aws_instance" "ec2" {
     delete_on_termination = var.ec2_ebs_delete_on_termination
   }
 
-  user_data = <<EOF
+  user_data = <<-EOF
     #!/bin/bash
 
     ######################
     # Setting S3 for EC2 #
     ######################
 
-    sudo echo "export DB_USERNAME=${var.db_username}" >> /etc/environment
-    sudo echo "export DB_PASSWORD=${var.db_password}" >> /etc/environment
-    sudo echo "export DB_ENDPOINT=${aws_db_instance.rds.endpoint}"  >> /etc/environment
-    sudo echo "export DB_NAME=${var.db_name}" >> /etc/environment
+    sudo echo export "DB_USERNAME=${var.db_username}" >> /etc/environment
+    sudo echo export "DB_PASSWORD=${var.db_password}" >> /etc/environment
+    sudo echo export "DB_ENDPOINT=${aws_db_instance.rds.endpoint}"  >> /etc/environment
+    sudo echo export "DB_NAME=${var.db_name}" >> /etc/environment
     
-    sudo echo "export S3_BUCKET=${aws_s3_bucket.s3_bucket.id}" >> /etc/environment
-    sudo echo "export S3_BUCKET_NAME=${var.bucket_name}" >> /etc/environment
+    sudo echo export "S3_BUCKET=${aws_s3_bucket.s3_bucket.id}" >> /etc/environment
+    sudo echo export "S3_BUCKET_NAME=${var.bucket_name}" >> /etc/environment
     
-    sudo echo "export FILESYSTEM_DRIVER=s3" >> /etc/environment
-    sudo echo "export AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
-    sudo chown -R ubuntu:www-data /var/www
-    usermod -a -G www-data ubuntu
+    sudo echo export "FILESYSTEM_DRIVER=s3" >> /etc/environment
+    sudo echo export "AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
   EOF
 
   tags = {
@@ -290,6 +288,10 @@ resource "aws_instance" "ec2" {
   }
 
   depends_on = [aws_db_instance.rds]
+}
+
+output "ec2_address" {
+    value = aws_instance.ec2.*.public_ip
 }
 
 output "rds_endpoint" {
