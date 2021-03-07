@@ -1,3 +1,15 @@
+variable "ec2_ami" {
+  default     = ""
+}
+
+variable "codedeploy_bucket_arn"{
+	default     = "arn:aws:s3:::"
+}
+
+variable "codedeploy_appname"{
+	default     ="csye6225-webapp"
+}
+
 variable "region" {
   default     = "us-east-1"
 }
@@ -57,16 +69,8 @@ variable "db_name" {
   default     = "csye6225"
 }
 
-variable "ec2_role_name" {
-  default     = "EC2-CSYE6225"
-}
-
 variable "webapp_s3_policy" {
   default     = "WebAppS3"
-}
-
-variable "ec2_ami" {
-  default     = ""
 }
 
 variable "ec2_instance_type" {
@@ -83,7 +87,6 @@ variable "ec2_disable_api_termination" {
 }
 
 variable "ec2_volume_type" {
-  type        = string
   default     = "gp2"
 }
 
@@ -95,4 +98,36 @@ variable "ec2_volume_size" {
 variable "ec2_ebs_delete_on_termination" {
   type        = bool
   default     = true
+}
+
+variable "CodeDeployEC2ServiceRole"{
+	default     ="CodeDeployEC2ServiceRole"
+}
+
+variable "CodeDeployServiceRole"{
+	default     ="CodeDeployServiceRole"
+}
+
+variable "CodeDeploy_EC2_S3"{
+	default     ="CodeDeploy-EC2-S3"
+}
+
+variable "AWSCodeDeployRole_policy"{
+	default     ="arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
+
+variable "GH_Upload_To_S3"{
+	default     ="GH-Upload-To-S3"
+}
+
+variable "GH_Code_Deploy"{
+	default     ="GH-Code-Deploy"
+}
+
+variable "GH_EC2_AMI"{
+	default     ="GH-EC2-AMI"
+}
+
+variable "ghactions_name"{
+	default     ="ghactions"
 }
