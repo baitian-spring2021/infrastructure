@@ -6,6 +6,10 @@ variable "codedeploy_bucket_arn"{
 	default     = "arn:aws:s3:::"
 }
 
+variable "ghactions_name"{
+	default     =""
+}
+
 variable "codedeploy_appname"{
 	default     ="csye6225-webapp"
 }
@@ -126,8 +130,4 @@ variable "GH_Code_Deploy"{
 
 variable "GH_EC2_AMI"{
 	default     ="GH-EC2-AMI"
-}
-
-variable "ghactions_name"{
-	default     ="ghactions"
 }
