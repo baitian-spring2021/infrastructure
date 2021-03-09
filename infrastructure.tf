@@ -210,7 +210,7 @@ resource "aws_iam_policy" "GH_Upload_To_S3" {
     {
       "Action": [
         "s3:Get*",
-        "s3:List*".
+        "s3:List*",
         "s3:PutObject"
       ],
       "Effect": "Allow",
@@ -406,13 +406,13 @@ EOF
 }
 
 # attach webapp_s3_policy to CodeDeployEC2ServiceRole
-resource "aws_iam_user_policy_attachment" "ec2_role_webapps3_attacher" {
+resource "aws_iam_role_policy_attachment" "ec2_role_webapps3_attacher" {
   role       = aws_iam_role.CodeDeployEC2ServiceRole.name
   policy_arn = aws_iam_policy.webapp_s3_policy.arn
 }
 
 # attach CodeDeploy_EC2_S3 policy to CodeDeployEC2ServiceRole
-resource "aws_iam_user_policy_attachment" "ec2_role_codedeploy_attacher" {
+resource "aws_iam_role_policy_attachment" "ec2_role_codedeploy_attacher" {
   role       = aws_iam_role.CodeDeployEC2ServiceRole.name
   policy_arn = aws_iam_policy.CodeDeploy_EC2_S3.arn
 }

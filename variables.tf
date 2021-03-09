@@ -7,7 +7,7 @@ variable "codedeploy_bucket_arn"{
 }
 
 variable "ghactions_name"{
-	default     =""
+	default     ="ghactions"
 }
 
 variable "codedeploy_appname"{
