@@ -7,7 +7,7 @@ variable "codedeploy_bucket_arn"{
 }
 
 variable "route53_domain" {
-  default     = "tianyubai.me"
+  default     = ""
 }
 
 variable "ghactions_name"{

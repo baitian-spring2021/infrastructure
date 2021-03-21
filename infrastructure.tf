@@ -484,7 +484,8 @@ resource "aws_route53_record" "primary_A_record" {
   name = var.route53_domain
   type = "A"
   ttl     = "300"
-  records = [aws_instance.ec2.*.public_ip]
+  records = [aws_instance.ec2.public_ip]
+  depends_on       = [aws_instance.ec2]
 }
 
 output "ec2_address" {
