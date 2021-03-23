@@ -6,6 +6,10 @@ variable "codedeploy_bucket_arn"{
 	default     = "arn:aws:s3:::"
 }
 
+variable "route53_domain" {
+  default     = ""
+}
+
 variable "ghactions_name"{
 	default     ="ghactions"
 }
