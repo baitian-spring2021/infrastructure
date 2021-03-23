@@ -1,9 +1,9 @@
 variable "ec2_ami" {
-  default     = ""
+  default     = "ami-0266deaf309cf6792"
 }
 
 variable "codedeploy_bucket_arn"{
-	default     = "arn:aws:s3:::"
+	default     = "arn:aws:s3:::codedeploy.tianyu.bai.webapp.prod"
 }
 
 variable "ghactions_name"{
