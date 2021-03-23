@@ -6,6 +6,10 @@ variable "codedeploy_bucket_arn"{
 	default     = "arn:aws:s3:::codedeploy.tianyu.bai.webapp.prod"
 }
 
+variable "route53_domain" {
+  default     = "prod.tianyubai.me"
+}
+
 variable "ghactions_name"{
 	default     ="ghactions"
 }

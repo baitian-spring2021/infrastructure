@@ -267,57 +267,6 @@ resource "aws_iam_policy" "GH_Code_Deploy" {
 EOF
 }
 
-# iam policy to allow gh to upload artifact to S3
-resource "aws_iam_policy" "GH_EC2_AMI" {
-  name   = var.GH_EC2_AMI
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ec2:AttachVolume",
-        "ec2:AuthorizeSecurityGroupIngress",
-        "ec2:CopyImage",
-        "ec2:CreateImage",
-        "ec2:CreateKeypair",
-        "ec2:CreateSecurityGroup",
-        "ec2:CreateSnapshot",
-        "ec2:CreateTags",
-        "ec2:CreateVolume",
-        "ec2:DeleteKeyPair",
-        "ec2:DeleteSecurityGroup",
-        "ec2:DeleteSnapshot",
-        "ec2:DeleteVolume",
-        "ec2:DeregisterImage",
-        "ec2:DescribeImageAttribute",
-        "ec2:DescribeImages",
-        "ec2:DescribeInstances",
-        "ec2:DescribeInstanceStatus",
-        "ec2:DescribeRegions",
-        "ec2:DescribeSecurityGroups",
-        "ec2:DescribeSnapshots",
-        "ec2:DescribeSubnets",
-        "ec2:DescribeTags",
-        "ec2:DescribeVolumes",
-        "ec2:DetachVolume",
-        "ec2:GetPasswordData",
-        "ec2:ModifyImageAttribute",
-        "ec2:ModifyInstanceAttribute",
-        "ec2:ModifySnapshotAttribute",
-        "ec2:RegisterImage",
-        "ec2:RunInstances",
-        "ec2:StopInstances",
-        "ec2:TerminateInstances"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-EOF
-}
-
 # attach GH_Upload_To_S3 policy to ghactions user
 resource "aws_iam_user_policy_attachment" "gh_GH_Upload_To_S3_attacher" {
   user       = var.ghactions_name
@@ -328,12 +277,6 @@ resource "aws_iam_user_policy_attachment" "gh_GH_Upload_To_S3_attacher" {
 resource "aws_iam_user_policy_attachment" "gh_GH_Code_Deploy_attacher" {
   user       = var.ghactions_name
   policy_arn = aws_iam_policy.GH_Code_Deploy.arn
-}
-
-# attach GH_EC2_AMI policy to ghactions user
-resource "aws_iam_user_policy_attachment" "gh_GH_EC2_AMI_attacher" {
-  user       = var.ghactions_name
-  policy_arn = aws_iam_policy.GH_EC2_AMI.arn
 }
 
 # CodeDeployEC2ServiceRole -------------------------------------------------------------
@@ -416,6 +359,13 @@ resource "aws_iam_role_policy_attachment" "ec2_role_codedeploy_attacher" {
   role       = aws_iam_role.CodeDeployEC2ServiceRole.name
   policy_arn = aws_iam_policy.CodeDeploy_EC2_S3.arn
 }
+
+# attach CloudWatchAgentServerPolicy for CodeDeployEC2ServiceRole
+resource "aws_iam_role_policy_attachment" "cloudwatch_policy" {
+  role       = aws_iam_role.CodeDeployEC2ServiceRole.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 
 # ec2 profile
 resource "aws_iam_instance_profile" "ec2_profile" {
@@ -521,6 +471,21 @@ resource "aws_codedeploy_deployment_group" "example" {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
   }
+}
+
+# Route 53 ----------------------------------------------------------------------------
+data "aws_route53_zone" "primary" {
+  name = var.route53_domain
+}
+ 
+# A Record for ec2
+resource "aws_route53_record" "primary_A_record" {
+  zone_id = data.aws_route53_zone.primary.zone_id
+  name = var.route53_domain
+  type = "A"
+  ttl     = "300"
+  records = [aws_instance.ec2.public_ip]
+  depends_on       = [aws_instance.ec2]
 }
 
 output "ec2_address" {
