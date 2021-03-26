@@ -1,5 +1,5 @@
 variable "ec2_ami" {
-  default     = "ami-0266deaf309cf6792"
+  default     = "ami-0630c91116a753e51"
 }
 
 variable "codedeploy_bucket_arn"{
@@ -135,3 +135,4 @@ variable "GH_Code_Deploy"{
 variable "GH_EC2_AMI"{
 	default     ="GH-EC2-AMI"
 }
+
