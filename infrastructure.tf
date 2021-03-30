@@ -80,32 +80,35 @@ resource "aws_route_table_association" "assoc3" {
   route_table_id = aws_route_table.routeTable.id
 }
 
-# application security group
-resource "aws_security_group" "application_sg" {
+# load balancer security group
+resource "aws_security_group" "lb_sg" {
   vpc_id      = aws_vpc.csye6225_vpc.id
-  ingress {
-    protocol        = "tcp"
-    from_port       = "22"
-    to_port         = "22"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
   ingress {
     protocol        = "tcp"
     from_port       = "80"
     to_port         = "80"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  ingress {
-    protocol        = "tcp"
-    from_port       = "443"
-    to_port       = "443"
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  tags = {
+    Name = "csye6225_lb_sg"
+  }
+}
+
+# application security group
+resource "aws_security_group" "application_sg" {
+  vpc_id      = aws_vpc.csye6225_vpc.id
+
   ingress {
     protocol        = "tcp"
     from_port       = "8080"
     to_port         = "8080"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups     = [aws_security_group.lb_sg.id]
   }
   egress {
     from_port   = 0
@@ -138,7 +141,7 @@ resource "aws_security_group" "database_sg" {
   }
 }
 
-# S3 bucket
+# S3 bucket --------------------------------------------------------------------------
 resource "aws_s3_bucket" "s3_bucket" {
   bucket        = var.bucket_name
   acl           = "private"
@@ -403,24 +406,58 @@ resource "aws_iam_role_policy_attachment" "CodeDeployServiceRole_policy_attacher
   policy_arn = var.AWSCodeDeployRole_policy
 }
 
-# launch ec2 instance and code deploy app ----------------------------------------------
+# Application Load Balancer -----------------------------------------------------------
 
-# ec2 instance 
-resource "aws_instance" "ec2" {
-  ami                  = var.ec2_ami
-  instance_type        = var.ec2_instance_type
-  disable_api_termination = var.ec2_disable_api_termination
-  security_groups      = [aws_security_group.application_sg.id]
-  iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
-  subnet_id            = aws_subnet.subnet2.id
-  key_name             = var.ec2_key_name
+# application load balancer
+resource "aws_lb" "alb" {
+  name               = "application-lb"
+  internal           = false
+  load_balancer_type = "application"
+  subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id, aws_subnet.subnet3.id]
+  security_groups    = [aws_security_group.lb_sg.id]
+}
 
-  ebs_block_device {
-    device_name           = "/dev/sda1"
-    volume_type           = var.ec2_volume_type
-    volume_size           = var.ec2_volume_size
-    delete_on_termination = var.ec2_ebs_delete_on_termination
+# alb target group
+resource "aws_lb_target_group" "alb_target_group" {
+  name                 = "alb-target-group"
+  port                 = 8080
+  protocol             = "HTTP"
+  vpc_id               = aws_vpc.csye6225_vpc.id
+  target_type          = "instance"
+
+  health_check {
+    path                = "/health/v1"
+    protocol            = "HTTP"
+    port                = 8080
+    matcher             = "200"
+    interval            = 10
+    timeout             = 5
   }
+}
+
+# alb listener
+resource "aws_lb_listener" "alb_listener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.alb_target_group.arn
+  }
+}
+
+# EC2 configuration with Autoscaling ----------------------------------------------
+
+# Autoscaling EC2 configuration
+resource "aws_launch_configuration" "asg_launch_configuration" {
+  name                        = "asg_launch_config"
+  image_id                    = var.ec2_ami
+  instance_type               = var.ec2_instance_type
+  key_name                    = var.ec2_key_name
+  associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
+  security_groups             = [aws_security_group.application_sg.id]
 
   user_data = <<-EOF
     #!/bin/bash
@@ -436,19 +473,95 @@ resource "aws_instance" "ec2" {
     sudo echo export "S3_BUCKET_NAME=${var.bucket_name}" >> /etc/environment
     sudo echo export "AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
   EOF
-
-  tags = {
-    "Name" = "csye6225_ec2"
+  
+  root_block_device {
+    volume_type           = var.ec2_volume_type
+    volume_size           = var.ec2_volume_size
+    delete_on_termination = var.ec2_ebs_delete_on_termination
   }
 
-  depends_on = [aws_db_instance.rds]
+  lifecycle {
+    create_before_destroy = true
+  }
 }
+
+# Autoscaling group
+resource "aws_autoscaling_group" "asg" {
+  name                 = "autoscaling_group"
+  launch_configuration = aws_launch_configuration.asg_launch_configuration.name
+  vpc_zone_identifier  = [aws_subnet.subnet1.id, aws_subnet.subnet2.id, aws_subnet.subnet3.id]
+  target_group_arns    = [aws_lb_target_group.alb_target_group.arn]
+  default_cooldown     = 30
+  desired_capacity     = 3
+  min_size             = 3
+  max_size             = 5
+  health_check_type    = "EC2"
+
+  tag {
+    key                 = "Name"
+    value               = "csye6225_ec2"
+    propagate_at_launch = true
+  }
+}
+
+# scale up policy
+resource "aws_autoscaling_policy" "autoscaling_scale_up" {
+  name                   = "autoscaling_scale_up"
+  scaling_adjustment     = 1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 30
+  autoscaling_group_name = aws_autoscaling_group.asg.name
+}
+
+# scale down policy
+resource "aws_autoscaling_policy" "autoscaling_scale_down" {
+  name                   = "autoscaling_scale_down"
+  scaling_adjustment     = -1
+  adjustment_type        = "ChangeInCapacity"
+  cooldown               = 30
+  autoscaling_group_name = aws_autoscaling_group.asg.name
+}
+
+# cloudwatch scale up metric
+resource "aws_cloudwatch_metric_alarm" "cpu_alarm_high" {
+  alarm_name          = "cpu_alarm_high"
+  alarm_description   = "Scale-up if CPU > 5% for 60 seconds"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  statistic           = "Average"
+  period              = "60"
+  evaluation_periods  = "2"
+  threshold           = "5"
+  comparison_operator = "GreaterThanThreshold"  
+  alarm_actions       = [aws_autoscaling_policy.autoscaling_scale_up.arn]
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+}
+
+# cloudwatch scale down metric
+resource "aws_cloudwatch_metric_alarm" "cpu_alarm_low" {
+  alarm_name          = "cpu_alarm_low"
+  alarm_description   = "Scale-down if CPU < 3% for 60 seconds"
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  statistic           = "Average"
+  period              = "60"
+  evaluation_periods  = "2"
+  threshold           = "3"
+  comparison_operator = "LessThanThreshold"
+  alarm_actions       = [aws_autoscaling_policy.autoscaling_scale_down.arn]
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+}
+
+# CodeDeploy app ------------------------------------------------------------------
 
 # code deploy application
 resource "aws_codedeploy_app" "codedeploy_app" {
   compute_platform = "Server"
   name             = var.codedeploy_appname
-  depends_on       = [aws_instance.ec2]
 }
 
 # codedeploy deployment group
@@ -456,9 +569,17 @@ resource "aws_codedeploy_deployment_group" "example" {
   app_name               = aws_codedeploy_app.codedeploy_app.name
   deployment_group_name  = "csye6225-webapp-deployment"
   service_role_arn       = aws_iam_role.CodeDeployServiceRole.arn
-  deployment_config_name = "CodeDeployDefault.AllAtOnce"
+  deployment_config_name = "CodeDeployDefault.OneAtATime"
+  autoscaling_groups = [aws_autoscaling_group.asg.name]
+
   deployment_style {
     deployment_type   = "IN_PLACE"
+  }
+  
+  load_balancer_info {
+    target_group_info {
+      name = aws_lb_target_group.alb_target_group.name
+    }
   }
   ec2_tag_set {
     ec2_tag_filter {
@@ -483,15 +604,18 @@ resource "aws_route53_record" "primary_A_record" {
   zone_id = data.aws_route53_zone.primary.zone_id
   name = var.route53_domain
   type = "A"
-  ttl     = "300"
-  records = [aws_instance.ec2.public_ip]
-  depends_on       = [aws_instance.ec2]
+
+  alias {
+    name                   = aws_lb.alb.dns_name
+    zone_id                = aws_lb.alb.zone_id
+    evaluate_target_health = true
+  }
 }
 
-output "ec2_address" {
-    value = aws_instance.ec2.*.public_ip
+output "app_domain" {
+  value = aws_route53_record.primary_A_record.name
 }
 
-output "rds_endpoint" {
-    value = aws_db_instance.rds.endpoint
+output "load_balancer_dns_name" {
+  value = aws_lb.alb.dns_name
 }
