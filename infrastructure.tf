@@ -616,6 +616,6 @@ output "app_domain" {
   value = aws_route53_record.primary_A_record.name
 }
 
-output "load balancer dns name" {
+output "load_balancer_dns_name" {
   value = aws_lb.alb.dns_name
 }
