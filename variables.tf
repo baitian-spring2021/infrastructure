@@ -1,5 +1,5 @@
 variable "ec2_ami" {
-  default     = "ami-0630c91116a753e51"
+  default     = ""
 }
 
 variable "codedeploy_bucket_arn"{
