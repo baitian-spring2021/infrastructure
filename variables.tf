@@ -2,6 +2,15 @@ variable "ec2_ami" {
   default     = ""
 }
 
+variable "lambda_deployment_jar"{
+	default     = "serverless-0.0.1-SNAPSHOT.jar"
+}
+
+
+variable "lambda_handler"{
+	default     = "com.neu.csye6225.serverless::handleRequest"
+}
+
 variable "codedeploy_bucket_arn"{
 	default     = "arn:aws:s3:::codedeploy.tianyu.bai.webapp.prod"
 }
@@ -135,4 +144,9 @@ variable "GH_Code_Deploy"{
 variable "GH_EC2_AMI"{
 	default     ="GH-EC2-AMI"
 }
+
+variable "codedeploy_bucket_name"{
+	default     = "codedeploy.tianyu.bai.webapp.prod"
+}
+
 

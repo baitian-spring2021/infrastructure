@@ -282,7 +282,7 @@ resource "aws_iam_user_policy_attachment" "gh_GH_Code_Deploy_attacher" {
   policy_arn = aws_iam_policy.GH_Code_Deploy.arn
 }
 
-# CodeDeployEC2ServiceRole -------------------------------------------------------------
+# EC2Role ---------------------------------------------------------------------------
 
 # iam role CodeDeployEC2ServiceRole for ec2
 resource "aws_iam_role" "CodeDeployEC2ServiceRole" {
@@ -612,10 +612,127 @@ resource "aws_route53_record" "primary_A_record" {
   }
 }
 
-output "app_domain" {
-  value = aws_route53_record.primary_A_record.name
+# SNS --------------------------------------------------------------------------------
+
+resource "aws_sns_topic" "notification_email" {
+  name         = "Notification_Email"
 }
 
-output "load_balancer_dns_name" {
-  value = aws_lb.alb.dns_name
+# grant ec2 access to SNS topic
+resource "aws_iam_policy" "webapp_sns_policy" {
+  name   = var.webapp_s3_policy
+  policy = <<EOF
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "sns:Publish"
+        ],
+        "Resource": [
+          "${aws_sns_topic.notification_email.arn}"
+        ]
+      }
+    ]
+  }
+  EOF
 }
+
+# attach webapp_sns_policy to CodeDeployEC2ServiceRole
+resource "aws_iam_role_policy_attachment" "ec2_role_webappSNS_attacher" {
+  role       = aws_iam_role.CodeDeployEC2ServiceRole.name
+  policy_arn = aws_iam_policy.webapp_sns_policy.arn
+}
+
+# DynamoDB ---------------------------------------------------------------------------
+
+resource "aws_dynamodb_table" "dynamodb_table" {
+  name           = "Emails_Sent"
+  hash_key       = "id"
+  attribute {
+    name = "id"
+    type = "S"
+  }
+}
+
+# Lambda IAM -------------------------------------------------------------------------
+
+resource "aws_iam_role" "LambdaServiceRole" {
+  name               = "LambdaServiceRole"
+  assume_role_policy = <<EOF
+  {
+    "Version": "2012-10-17", 
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole", 
+        "Effect": "Allow", 
+        "Principal": {
+          "Service": "lambda.amazonaws.com"
+        }
+      }
+    ]
+  }
+  EOF
+  tags = {
+    "Name" = "csye6225_lambda_role"
+  }
+}
+
+# grant lambda with basic execution
+resource "aws_iam_policy_attachment" "aws_lambda_basic_execution" {
+  roles      = [aws_iam_role.LambdaServiceRole.name]
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# grant lambda access to sns
+resource "aws_iam_policy_attachment" "aws_sns_lambda_policy" {
+  roles      = [aws_iam_role.LambdaServiceRole.name]
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+}
+
+# grant lambda access to dynamodb
+resource "aws_iam_policy_attachment" "aws_dynamodb_lambda_policy" {
+  roles      = [aws_iam_role.LambdaServiceRole.name]
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+}
+
+# grant lambda access to ses
+resource "aws_iam_policy_attachment" "aws_ses_lambda_policy" {
+  roles      = [aws_iam_role.LambdaServiceRole.name]
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+}
+
+# Lambda -----------------------------------------------------------------------------
+
+resource "aws_lambda_function" "lambda_function" {
+  function_name = "EmailNotification"
+  role          = aws_iam_role.LambdaServiceRole.arn
+  s3_bucket     = var.codedeploy_bucket_name
+  s3_key        = var.lambda_deployment_jar"
+  handler       = var.lambda_handler
+  
+  environment {
+    variables = {
+      table_name = aws_dynamodb_table.dynamodb_table.id
+      sender     = "no-reply@${var.route53_domain}"
+    }
+  }
+}
+
+# lambda subscription to SNS
+resource "aws_sns_topic_subscription" "lambda_subscription_sns" {
+  protocol  = "lambda"
+  topic_arn = aws_sns_topic.notification_email.arn
+  endpoint  = aws_lambda_function.lambda_function.arn
+}
+
+# lambda to be triggered from SNS
+resource "aws_lambda_permission" "lambda_permission" {
+  statement_id  = "AllowExecutionFromSNS"
+  principal     = "sns.amazonaws.com"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda_function.function_name
+  source_arn    = aws_sns_topic.notification_email.arn
+}
+
