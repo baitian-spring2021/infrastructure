@@ -620,23 +620,23 @@ resource "aws_sns_topic" "notification_email" {
 
 # grant ec2 access to SNS topic
 resource "aws_iam_policy" "webapp_sns_policy" {
-  name   = var.webapp_s3_policy
+  name   = "webapp_sns_policy"
   policy = <<EOF
-  {
-    "Version": "2012-10-17",
-    "Statement": [
-      {
-        "Effect": "Allow",
-        "Action": [
-          "sns:Publish"
-        ],
-        "Resource": [
-          "${aws_sns_topic.notification_email.arn}"
-        ]
-      }
-    ]
-  }
-  EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "sns:*"
+      ],
+      "Resource": [
+        "${aws_sns_topic.notification_email.arn}"
+      ]
+    }
+  ]
+}
+EOF
 }
 
 # attach webapp_sns_policy to CodeDeployEC2ServiceRole
@@ -650,6 +650,8 @@ resource "aws_iam_role_policy_attachment" "ec2_role_webappSNS_attacher" {
 resource "aws_dynamodb_table" "dynamodb_table" {
   name           = "Emails_Sent"
   hash_key       = "id"
+  read_capacity  = 5
+  write_capacity = 5
   attribute {
     name = "id"
     type = "S"
@@ -661,19 +663,19 @@ resource "aws_dynamodb_table" "dynamodb_table" {
 resource "aws_iam_role" "LambdaServiceRole" {
   name               = "LambdaServiceRole"
   assume_role_policy = <<EOF
-  {
-    "Version": "2012-10-17", 
-    "Statement": [
-      {
-        "Action": "sts:AssumeRole", 
-        "Effect": "Allow", 
-        "Principal": {
-          "Service": "lambda.amazonaws.com"
-        }
+{
+  "Version": "2012-10-17", 
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole", 
+      "Effect": "Allow", 
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
       }
-    ]
-  }
-  EOF
+    }
+  ]
+}
+EOF
   tags = {
     "Name" = "csye6225_lambda_role"
   }
@@ -681,24 +683,28 @@ resource "aws_iam_role" "LambdaServiceRole" {
 
 # grant lambda with basic execution
 resource "aws_iam_policy_attachment" "aws_lambda_basic_execution" {
+  name       = "lambda_basic_execution"
   roles      = [aws_iam_role.LambdaServiceRole.name]
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
 # grant lambda access to sns
 resource "aws_iam_policy_attachment" "aws_sns_lambda_policy" {
+  name       = "sns_lambda_policy"
   roles      = [aws_iam_role.LambdaServiceRole.name]
   policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
 }
 
 # grant lambda access to dynamodb
 resource "aws_iam_policy_attachment" "aws_dynamodb_lambda_policy" {
+  name       = "dynamodb_lambda_policy"
   roles      = [aws_iam_role.LambdaServiceRole.name]
   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 }
 
 # grant lambda access to ses
 resource "aws_iam_policy_attachment" "aws_ses_lambda_policy" {
+  name       = "ses_lambda_policy"
   roles      = [aws_iam_role.LambdaServiceRole.name]
   policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
 }
@@ -709,8 +715,11 @@ resource "aws_lambda_function" "lambda_function" {
   function_name = "EmailNotification"
   role          = aws_iam_role.LambdaServiceRole.arn
   s3_bucket     = var.codedeploy_bucket_name
-  s3_key        = var.lambda_deployment_jar"
+  s3_key        = var.lambda_deployment_jar
   handler       = var.lambda_handler
+  runtime       = "java11"
+  timeout = 120
+  memory_size = 256
   
   environment {
     variables = {
@@ -731,8 +740,43 @@ resource "aws_sns_topic_subscription" "lambda_subscription_sns" {
 resource "aws_lambda_permission" "lambda_permission" {
   statement_id  = "AllowExecutionFromSNS"
   principal     = "sns.amazonaws.com"
-  action        = "lambda:InvokeFunction"
+  action        = "lambda:*"
   function_name = aws_lambda_function.lambda_function.function_name
   source_arn    = aws_sns_topic.notification_email.arn
+}
+
+# iam policy to allow gh to deploy app with ec2
+resource "aws_iam_policy" "GH_Lambda_Deploy" {
+  name   = "GH_Lambda_Deploy"
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1482712489000",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateFunction",
+                "lambda:InvokeAsync",
+                "lambda:InvokeFunction",
+                "lambda:UpdateAlias",
+                "lambda:CreateAlias",
+                "lambda:GetFunctionConfiguration",
+                "lambda:AddPermission",
+                "lambda:UpdateFunctionCode"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+EOF
+}
+
+# attach GH_Upload_To_S3 policy to ghactions user
+resource "aws_iam_user_policy_attachment" "gh_lambda_attacher" {
+  user       = var.ghactions_name
+  policy_arn = aws_iam_policy.GH_Lambda_Deploy.arn
 }
 

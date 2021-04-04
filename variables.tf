@@ -1,5 +1,5 @@
 variable "ec2_ami" {
-  default     = ""
+  default     = "ami-0907437bef326eb4e"
 }
 
 variable "lambda_deployment_jar"{
@@ -8,7 +8,7 @@ variable "lambda_deployment_jar"{
 
 
 variable "lambda_handler"{
-	default     = "com.neu.csye6225.serverless::handleRequest"
+	default     = "com.neu.csye6225.serverless.EmailNotification"
 }
 
 variable "codedeploy_bucket_arn"{
