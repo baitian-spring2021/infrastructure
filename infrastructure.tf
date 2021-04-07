@@ -270,6 +270,37 @@ resource "aws_iam_policy" "GH_Code_Deploy" {
 EOF
 }
 
+# iam policy to allow gh to perform on cloud formation
+resource "aws_iam_policy" "GH_Cloudformation_Lambda" {
+  name   = "GH_Cloudformation_Lambda"
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "Stmt1449904348000",
+            "Effect": "Allow",
+            "Action": [
+                "cloudformation:*",
+                "iam:*",
+                "codedeploy:*",
+                "lambda:*"
+            ],
+            "Resource": [
+                "*"
+            ]
+        }
+    ]
+}
+EOF
+}
+
+# attach GH_Cloudformation_Lambda policy to ghactions user
+resource "aws_iam_user_policy_attachment" "gh_GH_Cloudformation_Lambda_attacher" {
+  user       = var.ghactions_name
+  policy_arn = aws_iam_policy.GH_Cloudformation_Lambda.arn
+}
+
 # attach GH_Upload_To_S3 policy to ghactions user
 resource "aws_iam_user_policy_attachment" "gh_GH_Upload_To_S3_attacher" {
   user       = var.ghactions_name
@@ -779,4 +810,3 @@ resource "aws_iam_user_policy_attachment" "gh_lambda_attacher" {
   user       = var.ghactions_name
   policy_arn = aws_iam_policy.GH_Lambda_Deploy.arn
 }
-
