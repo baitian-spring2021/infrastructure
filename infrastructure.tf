@@ -742,29 +742,11 @@ resource "aws_iam_policy_attachment" "aws_ses_lambda_policy" {
 
 # Lambda -----------------------------------------------------------------------------
 
-resource "aws_lambda_function" "lambda_function" {
-  function_name = "EmailNotification"
-  role          = aws_iam_role.LambdaServiceRole.arn
-  s3_bucket     = var.codedeploy_bucket_name
-  s3_key        = var.lambda_deployment_jar
-  handler       = var.lambda_handler
-  runtime       = "java11"
-  timeout = 120
-  memory_size = 256
-  
-  environment {
-    variables = {
-      table_name = aws_dynamodb_table.dynamodb_table.id
-      sender     = "no-reply@${var.route53_domain}"
-    }
-  }
-}
-
 # lambda subscription to SNS
 resource "aws_sns_topic_subscription" "lambda_subscription_sns" {
   protocol  = "lambda"
   topic_arn = aws_sns_topic.notification_email.arn
-  endpoint  = aws_lambda_function.lambda_function.arn
+  endpoint  = var.lambda_arn
 }
 
 # lambda to be triggered from SNS
@@ -772,7 +754,7 @@ resource "aws_lambda_permission" "lambda_permission" {
   statement_id  = "AllowExecutionFromSNS"
   principal     = "sns.amazonaws.com"
   action        = "lambda:*"
-  function_name = aws_lambda_function.lambda_function.function_name
+  function_name = var.lambda_arn
   source_arn    = aws_sns_topic.notification_email.arn
 }
 

@@ -2,13 +2,8 @@ variable "ec2_ami" {
   default     = "ami-0907437bef326eb4e"
 }
 
-variable "lambda_deployment_jar"{
-	default     = "serverless-0.0.1-SNAPSHOT.jar"
-}
-
-
-variable "lambda_handler"{
-	default     = "com.neu.csye6225.serverless.EmailNotification"
+variable "lambda_arn" {
+  default     = "arn:aws:lambda:us-east-1:597026635425:function:EmailNotification"
 }
 
 variable "codedeploy_bucket_arn"{
