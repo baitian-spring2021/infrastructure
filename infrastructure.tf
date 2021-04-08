@@ -237,11 +237,11 @@ resource "aws_iam_policy" "GH_Code_Deploy" {
     {
       "Effect": "Allow",
       "Action": [
-        "codedeploy:RegisterApplicationRevision",
-        "codedeploy:GetApplicationRevision"
+        "codedeploy:*"
       ],
       "Resource": [
-        "arn:aws:codedeploy:${var.region}:${data.aws_caller_identity.current.account_id}:application:${var.codedeploy_appname}"
+        "arn:aws:codedeploy:${var.region}:${data.aws_caller_identity.current.account_id}:application:${var.codedeploy_appname}",
+        "arn:aws:codedeploy:${var.region}:${data.aws_caller_identity.current.account_id}:function:EmailNotification*"
       ]
     },
     {
@@ -742,6 +742,32 @@ resource "aws_iam_policy_attachment" "aws_ses_lambda_policy" {
 
 # Lambda -----------------------------------------------------------------------------
 
+resource "aws_lambda_function" "lambda_function" {
+  function_name = "EmailNotification"
+  role          = aws_iam_role.LambdaServiceRole.arn
+  s3_bucket     = var.codedeploy_bucket_name
+  s3_key        = var.lambda_deployment_jar
+  handler       = var.lambda_handler
+  runtime       = "java11"
+  timeout = 120
+  memory_size = 256
+  publish       = true
+  
+  environment {
+    variables = {
+      table_name = aws_dynamodb_table.dynamodb_table.id
+      sender     = "no-reply@${var.route53_domain}"
+    }
+  }
+}
+
+resource "aws_lambda_alias" "lambda_alias" {
+  name             = "EmailNotificationAlias"
+  function_name    = aws_lambda_function.lambda_function.arn
+  function_version = "1"
+  depends_on = [aws_lambda_function.lambda_function]
+}
+
 # lambda subscription to SNS
 resource "aws_sns_topic_subscription" "lambda_subscription_sns" {
   protocol  = "lambda"
@@ -791,4 +817,65 @@ EOF
 resource "aws_iam_user_policy_attachment" "gh_lambda_attacher" {
   user       = var.ghactions_name
   policy_arn = aws_iam_policy.GH_Lambda_Deploy.arn
+}
+
+# CodeDeploy app ------------------------------------------------------------------
+
+
+# CodeDeployServiceRole
+resource "aws_iam_role" "CodeDeployLambdaServiceRole" {
+  name = "CodeDeployLambdaServiceRole"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17", 
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole", 
+      "Effect": "Allow", 
+      "Principal": {
+        "Service": "codedeploy.amazonaws.com"
+      }
+    }
+  ]
+}
+EOF
+  tags = {
+    "Name" = "csye6225_codedeploy_lambda_role"
+  }
+}
+
+# attach AWSCodeDeployRole policy to CodeDeployServiceRole
+resource "aws_iam_role_policy_attachment" "CodeDeployLambdaServiceRole_attacher" {
+  role       = aws_iam_role.CodeDeployLambdaServiceRole.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRoleForLambda"
+}
+
+# attach AWSCodeDeployRole policy to CodeDeployServiceRole
+resource "aws_iam_role_policy_attachment" "CodeDeployLambdaServiceRole_S3_attacher" {
+  role       = aws_iam_role.CodeDeployLambdaServiceRole.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+# code deploy application
+resource "aws_codedeploy_app" "codedeploy_lambda" {
+  compute_platform = "Lambda"
+  name             = "EmailNotification"
+}
+
+# codedeploy deployment group
+resource "aws_codedeploy_deployment_group" "lambda_deployment_group" {
+  app_name               = aws_codedeploy_app.codedeploy_lambda.name
+  deployment_group_name  = "csye6225-emailNotification-deployment"
+  service_role_arn       = aws_iam_role.CodeDeployLambdaServiceRole.arn
+  deployment_config_name = "CodeDeployDefault.LambdaAllAtOnce"
+
+  deployment_style {
+    deployment_type = "BLUE_GREEN"
+    deployment_option = "WITH_TRAFFIC_CONTROL"
+  }
+  
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
 }
