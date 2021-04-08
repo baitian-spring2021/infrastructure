@@ -764,7 +764,7 @@ resource "aws_lambda_function" "lambda_function" {
 resource "aws_lambda_alias" "lambda_alias" {
   name             = "EmailNotificationAlias"
   function_name    = aws_lambda_function.lambda_function.arn
-  function_version = "1"
+  function_version = aws_lambda_function.lambda_function.version
   depends_on = [aws_lambda_function.lambda_function]
 }
 
