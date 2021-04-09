@@ -89,6 +89,12 @@ resource "aws_security_group" "lb_sg" {
     to_port         = "80"
     cidr_blocks = ["0.0.0.0/0"]
   }
+  ingress {
+    from_port   = "443"
+    to_port     = "443"
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -178,6 +184,11 @@ resource "aws_db_subnet_group" "db_subnet_group" {
   }
 }
 
+# KMS key for RDS
+resource "aws_kms_key" "rds_kms_key" {
+  description  = "rds_encryption"
+}
+
 # RDS instance
 resource "aws_db_instance" "rds" {
   allocated_storage      = var.db_allocated_storage
@@ -192,10 +203,14 @@ resource "aws_db_instance" "rds" {
   name                   = var.db_name
   vpc_security_group_ids = [aws_security_group.database_sg.id]
   skip_final_snapshot    = true
+  storage_encrypted      = true
+  kms_key_id             = aws_kms_key.rds_kms_key.arn
 
   tags = {
     "Name" = "csye6225_rds"
   }
+
+  depends_on = [aws_kms_key.rds_kms_key]
 }
 
 # ghactions ----------------------------------------------------------------------------
@@ -467,13 +482,26 @@ resource "aws_lb_target_group" "alb_target_group" {
 }
 
 # alb listener
+#resource "aws_lb_listener" "alb_listener" {
+#  load_balancer_arn = aws_lb.alb.arn
+#  port              = "80"
+#  protocol          = "HTTP"
+#
+#  default_action {
+#    type = "forward"
+#    target_group_arn = aws_lb_target_group.alb_target_group.arn
+#  }
+#}
+
+# create listner for HTTPS
 resource "aws_lb_listener" "alb_listener" {
   load_balancer_arn = aws_lb.alb.arn
-  port              = "80"
-  protocol          = "HTTP"
-
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = var.server_certificate_arn
   default_action {
-    type = "forward"
+    type             = "forward"
     target_group_arn = aws_lb_target_group.alb_target_group.arn
   }
 }
