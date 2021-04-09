@@ -482,16 +482,20 @@ resource "aws_lb_target_group" "alb_target_group" {
 }
 
 # alb listener
-#resource "aws_lb_listener" "alb_listener" {
-#  load_balancer_arn = aws_lb.alb.arn
-#  port              = "80"
-#  protocol          = "HTTP"
-#
-#  default_action {
-#    type = "forward"
-#    target_group_arn = aws_lb_target_group.alb_target_group.arn
-#  }
-#}
+resource "aws_lb_listener" "alb_listener_http" {
+  load_balancer_arn = aws_lb.alb.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "forward"
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
 
 # create listner for HTTPS
 resource "aws_lb_listener" "alb_listener" {
@@ -507,6 +511,9 @@ resource "aws_lb_listener" "alb_listener" {
 }
 
 # EC2 configuration with Autoscaling ----------------------------------------------
+
+# KMS for EBS
+
 
 # Autoscaling EC2 configuration
 resource "aws_launch_configuration" "asg_launch_configuration" {
@@ -533,11 +540,14 @@ resource "aws_launch_configuration" "asg_launch_configuration" {
     sudo echo export "AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
   EOF
   
-  root_block_device {
+  ebs_block_device {
+    device_name           = ""
     volume_type           = var.ec2_volume_type
     volume_size           = var.ec2_volume_size
     delete_on_termination = var.ec2_ebs_delete_on_termination
+    encrypted     = true
   }
+
 
   lifecycle {
     create_before_destroy = true
