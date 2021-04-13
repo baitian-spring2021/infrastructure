@@ -12,14 +12,6 @@ $ aws acm import-certificate --certificate fileb://{your certificate} \
 
 ### Configuration
 
-> Pre-requisites
-> * AWS CLI
-> * Terraform
-> * Approved SSL Certificate in Your AWS Certificate Manager (AWS CLI import command listed below, all files must be in pem format)
-$ aws acm import-certificate --certificate fileb://{your certificate} \
-    --certificate-chain fileb://{your certificate chain} \
-    --private-key fileb://{your private key}
-
 1. Clone this repository.
 ```sh
 $ git clone {repo link}
