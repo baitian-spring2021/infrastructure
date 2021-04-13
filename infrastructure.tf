@@ -84,15 +84,9 @@ resource "aws_route_table_association" "assoc3" {
 resource "aws_security_group" "lb_sg" {
   vpc_id      = aws_vpc.csye6225_vpc.id
   ingress {
-    protocol        = "tcp"
-    from_port       = "80"
-    to_port         = "80"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = "443"
-    to_port     = "443"
     protocol    = "tcp"
+    from_port   = 443
+    to_port     = 443
     cidr_blocks = ["0.0.0.0/0"]
   }
   egress {
@@ -114,7 +108,13 @@ resource "aws_security_group" "application_sg" {
     protocol        = "tcp"
     from_port       = "8080"
     to_port         = "8080"
-    security_groups     = [aws_security_group.lb_sg.id]
+    security_groups = [aws_security_group.lb_sg.id]
+  }
+  ingress {
+    protocol        = "tcp"
+    from_port       = "443"
+    to_port         = "443"
+    security_groups = [aws_security_group.lb_sg.id]
   }
   egress {
     from_port   = 0
@@ -189,6 +189,11 @@ resource "aws_kms_key" "rds_kms_key" {
   description  = "rds_encryption"
 }
 
+resource "aws_kms_alias" "rds_kms_key_alias" {
+  name          = "alias/rdsKey"
+  target_key_id = aws_kms_key.rds_kms_key.key_id
+}
+
 # RDS instance
 resource "aws_db_instance" "rds" {
   allocated_storage      = var.db_allocated_storage
@@ -205,12 +210,11 @@ resource "aws_db_instance" "rds" {
   skip_final_snapshot    = true
   storage_encrypted      = true
   kms_key_id             = aws_kms_key.rds_kms_key.arn
+  ca_cert_identifier     = "rds-ca-2019"
 
   tags = {
     "Name" = "csye6225_rds"
   }
-
-  depends_on = [aws_kms_key.rds_kms_key]
 }
 
 # ghactions ----------------------------------------------------------------------------
@@ -397,6 +401,7 @@ resource "aws_iam_policy" "CodeDeploy_EC2_S3" {
 EOF
 }
 
+
 # attach webapp_s3_policy to CodeDeployEC2ServiceRole
 resource "aws_iam_role_policy_attachment" "ec2_role_webapps3_attacher" {
   role       = aws_iam_role.CodeDeployEC2ServiceRole.name
@@ -481,20 +486,10 @@ resource "aws_lb_target_group" "alb_target_group" {
   }
 }
 
-# alb listener
-resource "aws_lb_listener" "alb_listener_http" {
-  load_balancer_arn = aws_lb.alb.arn
-  port              = "80"
-  protocol          = "HTTP"
-
-  default_action {
-    type = "forward"
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
-    }
-  }
+data "aws_acm_certificate" "SSL_cert_comodo" {
+  domain = var.route53_domain
+  types    = ["IMPORTED"]
+  statuses = ["ISSUED"]
 }
 
 # create listner for HTTPS
@@ -502,8 +497,8 @@ resource "aws_lb_listener" "alb_listener" {
   load_balancer_arn = aws_lb.alb.arn
   port              = "443"
   protocol          = "HTTPS"
-  ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = var.server_certificate_arn
+  certificate_arn   = data.aws_acm_certificate.SSL_cert_comodo.arn
+  
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.alb_target_group.arn
@@ -512,20 +507,65 @@ resource "aws_lb_listener" "alb_listener" {
 
 # EC2 configuration with Autoscaling ----------------------------------------------
 
-# KMS for EBS
+# KMS key for EBS
+resource "aws_kms_key" "ebs_kms_key" {
+  description  = "rds_encryption"
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Id": "key-consolepolicy-3",
+  "Statement": [
+    {
+      "Sid": "Allow administration of the key",
+      "Effect": "Allow",
+      "Principal": {
+          "AWS": "arn:aws:iam::597026635425:root"
+      },
+      "Action": "kms:*",
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow ServiceLinked Role CMK",
+      "Effect": "Allow",
+      "Principal": {
+          "AWS": [
+              "arn:aws:iam::597026635425:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+          ]
+      },
+      "Action": [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+          "kms:Update*"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Allow attachment of persistent resources",
+      "Effect": "Allow",
+      "Principal": {
+          "AWS": [
+              "arn:aws:iam::597026635425:role/aws-service-role/autoscaling.amazonaws.com/AWSServiceRoleForAutoScaling"
+          ]
+      },
+      "Action": [
+          "kms:CreateGrant"
+      ],
+      "Resource": "*"
+    }
+  ]}
+EOF
+}
 
+resource "aws_kms_alias" "ebs_kms_key_alias" {
+  name          = "alias/ebsKey"
+  target_key_id = aws_kms_key.ebs_kms_key.key_id
+}
 
-# Autoscaling EC2 configuration
-resource "aws_launch_configuration" "asg_launch_configuration" {
-  name                        = "asg_launch_config"
-  image_id                    = var.ec2_ami
-  instance_type               = var.ec2_instance_type
-  key_name                    = var.ec2_key_name
-  associate_public_ip_address = true
-  iam_instance_profile        = aws_iam_instance_profile.ec2_profile.name
-  security_groups             = [aws_security_group.application_sg.id]
-
-  user_data = <<-EOF
+data "template_file" "output" {
+  template = <<-EOF
     #!/bin/bash
 
     ######################
@@ -538,17 +578,35 @@ resource "aws_launch_configuration" "asg_launch_configuration" {
     sudo echo export "DB_NAME=${var.db_name}" >> /etc/environment
     sudo echo export "S3_BUCKET_NAME=${var.bucket_name}" >> /etc/environment
     sudo echo export "AWS_DEFAULT_REGION=${var.region}" >> /etc/environment
-  EOF
+EOF
+}
+
+resource "aws_launch_template" "asg_launch_template" {
+  name                        = "asg_launch_template"
+  image_id                    = var.ec2_ami
+  instance_type               = var.ec2_instance_type
+  key_name                    = var.ec2_key_name
+  user_data = base64encode(data.template_file.output.rendered)
   
-  ebs_block_device {
-    device_name           = ""
-    volume_type           = var.ec2_volume_type
-    volume_size           = var.ec2_volume_size
-    delete_on_termination = var.ec2_ebs_delete_on_termination
-    encrypted     = true
+  network_interfaces {
+    associate_public_ip_address = true
+    security_groups = [aws_security_group.application_sg.id]
   }
 
-
+  iam_instance_profile {
+    name  = aws_iam_instance_profile.ec2_profile.name
+  }
+  
+  block_device_mappings {
+    device_name = "/dev/sda1"
+    ebs {
+      kms_key_id     = aws_kms_key.ebs_kms_key.arn
+      encrypted         = true
+      volume_type           = var.ec2_volume_type
+      volume_size           = var.ec2_volume_size
+      delete_on_termination = var.ec2_ebs_delete_on_termination
+    }
+  }
   lifecycle {
     create_before_destroy = true
   }
@@ -557,7 +615,9 @@ resource "aws_launch_configuration" "asg_launch_configuration" {
 # Autoscaling group
 resource "aws_autoscaling_group" "asg" {
   name                 = "autoscaling_group"
-  launch_configuration = aws_launch_configuration.asg_launch_configuration.name
+  launch_template {
+    id      = aws_launch_template.asg_launch_template.id
+  }
   vpc_zone_identifier  = [aws_subnet.subnet1.id, aws_subnet.subnet2.id, aws_subnet.subnet3.id]
   target_group_arns    = [aws_lb_target_group.alb_target_group.arn]
   default_cooldown     = 30

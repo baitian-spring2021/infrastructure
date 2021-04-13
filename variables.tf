@@ -1,11 +1,6 @@
 variable "ec2_ami" {
   default     = "ami-0907437bef326eb4e"
 }
-
-variable "server_certificate_arn" {
-  default     = "arn:aws:iam::597026635425:server-certificate/csye6225Certificate"
-}
-
 variable "lambda_arn" {
   default     = "arn:aws:lambda:us-east-1:597026635425:function:EmailNotification"
 }
@@ -40,7 +35,7 @@ variable "region" {
 }
 
 variable "a_zone" {
-  default     = ["d", "e", "f"]
+  default     = ["a", "b", "c"]
 }
 
 variable "cidr_vpc" {
