@@ -1,12 +1,22 @@
 # Infrastructure Setup with Terraform
 
+### Pre-requisites
+ * AWS CLI
+ * Terraform
+ * Approved SSL Certificate in Your AWS Certificate Manager (AWS CLI import command listed below, all files must be in pem format)
+ ```sh
+$ aws acm import-certificate --certificate fileb://{your certificate} \
+    --certificate-chain fileb://{your certificate chain} \
+    --private-key fileb://{your private key}
+ ```
+
 ### Configuration
 
 > Pre-requisites
 > * AWS CLI
 > * Terraform
 > * Approved SSL Certificate in Your AWS Certificate Manager (AWS CLI import command listed below, all files must be in pem format)
-> $ aws acm import-certificate --certificate fileb://{your certificate} \
+$ aws acm import-certificate --certificate fileb://{your certificate} \
     --certificate-chain fileb://{your certificate chain} \
     --private-key fileb://{your private key}
 
