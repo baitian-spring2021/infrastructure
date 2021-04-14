@@ -103,7 +103,6 @@ resource "aws_security_group" "lb_sg" {
 # application security group
 resource "aws_security_group" "application_sg" {
   vpc_id      = aws_vpc.csye6225_vpc.id
-
   ingress {
     protocol        = "tcp"
     from_port       = "8080"
