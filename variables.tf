@@ -1,35 +1,3 @@
-variable "ec2_ami" {
-  default     = "ami-0907437bef326eb4e"
-}
-variable "lambda_arn" {
-  default     = "arn:aws:lambda:us-east-1:597026635425:function:EmailNotification"
-}
-
-variable "lambda_deployment_jar"{
-	default     = "serverless-0.0.1-SNAPSHOT.jar"
-}
-
-
-variable "lambda_handler"{
-	default     = "com.neu.csye6225.serverless.EmailNotification::handleRequest"
-}
-
-variable "codedeploy_bucket_arn"{
-	default     = "arn:aws:s3:::codedeploy.tianyu.bai.webapp.prod"
-}
-
-variable "route53_domain" {
-  default     = "prod.tianyubai.me"
-}
-
-variable "ghactions_name"{
-	default     ="ghactions"
-}
-
-variable "codedeploy_appname"{
-	default     ="csye6225-webapp"
-}
-
 variable "region" {
   default     = "us-east-1"
 }
@@ -152,4 +120,40 @@ variable "codedeploy_bucket_name"{
 	default     = "codedeploy.tianyu.bai.webapp.prod"
 }
 
+variable "ghactions_ami_name"{
+	default     ="ghactions-ami"
+}
+
+variable "ec2_ami" {
+  default     = "ami-0907437bef326eb4e"
+}
+
+variable "lambda_arn" {
+  default     = "arn:aws:lambda:us-east-1:597026635425:function:EmailNotification"
+}
+
+variable "lambda_deployment_jar"{
+	default     = "serverless-0.0.1-SNAPSHOT.jar"
+}
+
+
+variable "lambda_handler"{
+	default     = "com.neu.csye6225.serverless.EmailNotification::handleRequest"
+}
+
+variable "codedeploy_bucket_arn"{
+	default     = "arn:aws:s3:::codedeploy.tianyu.bai.webapp.prod"
+}
+
+variable "route53_domain" {
+  default     = "prod.tianyubai.me"
+}
+
+variable "ghactions_name"{
+	default     ="ghactions"
+}
+
+variable "codedeploy_appname"{
+	default     ="csye6225-webapp"
+}
 
